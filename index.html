@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบฐานข้อมูลนิสิต</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { primary: '#1e3a8a', secondary: '#3b82f6' } } }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&display=swap');
+
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, .3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            width: 1.5rem;
+            height: 1.5rem;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="text-slate-800">
+
+    <header class="bg-primary text-white p-4 shadow-md sticky top-0 z-10">
+        <div class="container mx-auto max-w-5xl flex justify-between items-center">          
+            <div class="flex items-center gap-4">
+                <img src="https://lh5.googleusercontent.com/d/1kHjp4nBT4V1Lk5bdA-HWzFBYFP6sqYqs" alt="Logo" class="h-16 mr-4">
+                <h1 class="text-xl md:text-2xl font-bold">ระเบียนประวัตินิสิตแพทย์ ศูนย์แพทยศาสตรศึกษาชั้นคลินิก
+                โรงพยาบาลพิจิตร
+                </h1>
+            </div>
+            <div id="userProfile" class="hidden text-sm flex items-center">
+                <span>ผู้ใช้งาน: <span id="displayUserName" class="font-bold"></span></span>
+                <button onclick="confirmLogout()"
+                    class="ml-4 bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-white transition shadow">ออกจากระบบ</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto max-w-5xl p-4 mt-6">
+        <div id="loginSection" class="max-w-md mx-auto bg-white rounded-xl shadow-lg overflow-hidden mt-10">
+            <div class="bg-primary p-6 text-center text-white">
+                <h2 class="text-2xl font-semibold">เข้าสู่ระบบ</h2>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">เลขประจำตัวประชาชน (CID)</label>
+                    <input type="text" id="loginCid"
+                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-secondary outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">รหัสนิสิต (Student Number)</label>
+                    <input type="password" id="loginStudentId"
+                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-secondary outline-none">
+                </div>
+                <button id="btnLogin" onclick="login()"
+                    class="w-full bg-secondary hover:bg-blue-600 text-white font-semibold py-2 rounded-lg transition duration-200 flex justify-center items-center">
+                    <span id="loginBtnText">เข้าสู่ระบบ</span>
+                    <div id="loginSpinner" class="spinner hidden ml-2"></div>
+                </button>
+            </div>
+        </div>
+
+        <div id="formSection" class="hidden">
+            <div class="bg-blue-50 border-l-4 border-primary p-4 mb-6 rounded shadow-sm">
+                <p class="text-sm text-primary">กรุณาตรวจสอบและอัปเดตข้อมูล หากมีการเปลี่ยนรูปภาพหรือไฟล์สัญญา
+                    ระบบจะใช้เวลาอัปโหลดสักครู่</p>
+            </div>
+            <form id="studentForm" onsubmit="saveData(event)" class="space-y-6">
+                <div id="formContainer"></div>
+                <div class="flex flex-col items-end gap-2 mt-8 pt-4 border-t">
+                    <div id="uploadStatus" class="text-sm text-secondary font-medium hidden">กำลังอัปโหลดไฟล์...
+                        กรุณารอสักครู่</div>
+                    <button type="submit" id="btnSave"
+                        class="bg-primary hover:bg-blue-800 text-white px-8 py-3 rounded-lg font-semibold shadow-md transition duration-200 flex justify-center items-center">
+                        <span id="saveBtnText">บันทึกข้อมูล</span>
+                        <div id="saveSpinner" class="spinner hidden ml-2"></div>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbz2UVDYKbRk9C4Z45rBCSuS8MKeEfvJpTKDtfzeDyUWl1rpJt3B0dVjF54EIBsRht0hAA/exec";
+        // ==========================================
+
+        let currentRowData = [];
+        let currentRowIndex = -1;
+
+        const formSchema = [
+            {
+                groupName: "ไฟล์สัญญาการเป็นนักศึกษาเพื่อศึกษาวิชาแพทย์ศาสตร์ ตามโครงการร่วมผลิตแพทย์เพิ่มเพื่อชาวชนบท",
+                fields: [
+                    {
+                        index: 63,
+                        label: "ไฟล์สัญญา  สามารถดาวโหลดได้ที่ <a href='https://med.nu.ac.th/sys/sa/' target='_blank' class='text-blue-600 underline hover:text-blue-800'>https://med.nu.ac.th/sys/sa/</a> โดยใช้ Username / Password เดียวกับระบบลงทะเบียนเรียน (REG)",
+                        type: "file",
+                        accept: ".pdf,.doc,.docx,image/*",
+                        fullWidth: true
+                    },
+                ]
+            },
+            {
+                
+                groupName: "ข้อมูลส่วนตัว",
+                fields: [
+                    { index: 1, label: "รหัสนิสิต", type: "text", readonly: true, width: "third" },
+                    { index: 3, label: "CID (รหัสบัตรประชาชน)", type: "text", readonly: true, width: "third" },
+                    { index: 2, label: "รุ่น", type: "text", readonly: true, width: "third" },
+
+                    { index: 51, label: "ปีที่เข้าศึกษา", type: "text", readonly: true, width: "half" },
+                    { index: 50, label: "สถานะ", type: "text", readonly: true, width: "half" },
+
+                    { index: 4, label: "คำนำหน้า", type: "select", required: true, options: ["นาย", "นางสาว", "นาง"], width: "third" },
+                    { index: 5, label: "ชื่อ", type: "text", required: true, width: "third" },
+                    { index: 6, label: "สกุล", type: "text", required: true, width: "third" },
+
+                    { index: 8, label: "Fullname (ภาษาอังกฤษ)", type: "text", required: true, width: "third" },
+                    { index: 9, label: "ชื่อเล่น", type: "text", required: true, width: "third" },
+                    { index: 10, label: "วันเดือนปีเกิด (ปี ค.ศ.)", type: "date", required: true, width: "third" },
+
+                    { index: 11, label: "สถานะภาพ", type: "select", options: ["โสด", "สมรส", "หย่าร้าง", "หม้าย"], required: true, width: "third" },
+                    { index: 12, label: "ศาสนา", type: "select", options: ["พุทธ", "คริสต์", "อิสลาม", "พราหมณ์-ฮินดู", "ไม่นับถือศาสนา", "อื่นๆ"], required: true, width: "third" },
+                    { index: 74, label: "อาหาร", type: "select", options: ["อาหารปกติ", "อาหารฮาลาล (Halal)", "อาหารมังสวิรัติ (Vegetarian)", "อาหารเจ (Vegan)", "อื่นๆ"], required: true, width: "third" },
+                ]
+            },
+            {
+                groupName: "ข้อมูลการติดต่อ",
+                fields: [
+                    { index: 64, label: "บ้านเลขที่", type: "text" , required: true },
+                    { index: 65, label: "หมู่", type: "text" },
+                    { index: 66, label: "ซอย", type: "text" },
+                    { index: 67, label: "ถนน", type: "text" },
+                    { index: 68, label: "ตำบล", type: "text" , required: true },
+                    { index: 69, label: "อำเภอ", type: "text" , required: true },
+                    { index: 70, label: "จังหวัด", type: "text" , required: true },
+                    { index: 71, label: "รหัสไปรษณีย์", type: "text" , required: true },
+                    { index: 14, label: "เบอร์โทรศัพท์", type: "text" , required: true },
+                    { index: 15, label: "อีเมล์ (สถานศึกษา)", type: "email" , required: true },
+                    { index: 16, label: "อีเมล์ส่วนตัว", type: "email" , required: true },
+                    { index: 17, label: "Line ID", type: "text" },
+                ]
+            },
+            {
+                groupName: "ข้อมูลสุขภาพ",
+                fields: [
+                    { index: 18, label: "หมู่เลือด", type: "select", options: ["A", "B", "AB", "O"], required: true, width: "half" },
+                    { index: 22, label: "สิทธิการรักษา", type: "select", options: ["บัตรทอง/30 บาท", "ประกันสังคม", "ข้าราชการ", "ประกันสุขภาพเอกชน"], required: true, width: "half" },
+                    { index: 19, label: "โรคประจำตัว (ถ้ามี)", type: "text", fullWidth: true },
+                    { index: 20, label: "การรักษา (ถ้ามี)", type: "text", fullWidth: true },
+                    { index: 21, label: "การให้ยา (ถ้ามี)", type: "text", fullWidth: true },
+                ]
+            },
+            {
+                groupName: "ข้อมูลครอบครัว",
+                fields: [
+                    { index: 23, label: "ชื่อ-สกุล บิดา", type: "text", width: "half" },
+                    { index: 25, label: "โทรศัพท์บิดา", type: "text", width: "half" },
+                    { index: 26, label: "ชื่อ-สกุล มารดา", type: "text", width: "half" },
+                    { index: 28, label: "โทรศัพท์มารดา", type: "text", width: "half" },
+                    { index: 29, label: "สถานะครอบครัว", type: "select", options: ["สมรส", "หย่าร้าง/แยกทาง", "บิดาเสียชีวิต", "มารดาเสียชีวิต", "บิดาและมารดาเสียชีวิต"], width: "half" },
+                ]
+            },
+            {
+                groupName: "ผู้ติดต่อฉุกเฉิน (อาจเป็นผู้อื่นที่ไม่ใช่ บิดา - มารดา)",
+                fields: [
+                    { index: 30, label: "ชื่อ-สกุล ผู้ติดต่อฉุกเฉิน", type: "text" },
+                    { index: 31, label: "สถานะผู้ติดต่อฉุกเฉิน (ความสัมพันธ์)", type: "text", placeholder: "เช่น ลุง, อา, พี่ชาย" },
+                    { index: 33, label: "เบอร์โทรผู้ติดต่อฉุกเฉิน", type: "text" },
+                ]
+            },
+            {
+                groupName: "ข้อมูลการศึกษาก่อนหน้า",
+                fields: [
+                    { index: 34, label: "การศึกษาขั้นสูงสุด", type: "select", options: ["ปริญญาตรี", "ปริญญาโท", "ปริญญาเอก"], width: "third" , required: true },
+                    { index: 35, label: "ชื่อวุฒิการศึกษา", type: "text", width: "third" , required: true },
+                    { index: 36, label: "มหาวิทยาลัย", type: "text", width: "third" , required: true },
+                    { index: 37, label: "สาขา", type: "text" },
+                ]
+            },
+            {
+                groupName: "ทุนการศึกษาปัจจุบัน",
+                fields: [
+                    { index: 38, label: "ทุนปัจจุบัน", type: "text" , required: true },
+                    { index: 39, label: "สถานที่ใช้ทุน", type: "text" , required: true },
+                    { index: 40, label: "จังหวัดที่ใช้ทุน", type: "text" , required: true },
+                ]
+            },
+            {
+                groupName: "ประวัติการทำงาน",
+                fields: [
+                    { index: 41, label: "ที่ทำงานที่ 1", type: "text" },
+                    { index: 42, label: "ตำแหน่งงานที่ 1", type: "text" },
+                    { index: 43, label: "ระยะเวลาทำงานที่ 1", type: "text", placeholder: "เช่น 1 ปี 2 เดือน" },
+                    { index: 44, label: "ที่ทำงานที่ 2 (ถ้ามี)", type: "text" },
+                    { index: 45, label: "ตำแหน่งงานที่ 2 (ถ้ามี)", type: "text" },
+                    { index: 46, label: "ระยะเวลาทำงานที่ 2 (ถ้ามี)", type: "text" },
+                    { index: 47, label: "ที่ทำงานที่ 3 (ถ้ามี)", type: "text" },
+                    { index: 48, label: "ตำแหน่งงานที่ 3 (ถ้ามี)", type: "text" },
+                    { index: 49, label: "ระยะเวลาทำงานที่ 3 (ถ้ามี)", type: "text" },
+                ]
+            },
+            {
+                groupName: "ทะเบียนรถ (กรณีนำรถมาใช้ในโรงพยาบาล)",
+                fields: [
+                    { index: 72, label: "ทะเบียนรถยนต์", type: "text", fullWidth: true},
+                    { index: 73, label: "ทะเบียนรถจักรยานยนต์", type: "text", fullWidth: true},
+                ]
+            }
+        ];
+
+        function renderForm() {
+            const container = document.getElementById('formContainer');
+            container.innerHTML = '';
+
+            formSchema.forEach(group => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'bg-white p-6 rounded-xl shadow-sm border border-slate-200';
+
+                const title = document.createElement('h3');
+                title.className = 'text-lg font-semibold text-primary mb-4 border-b pb-2';
+                title.innerText = group.groupName;
+                groupDiv.appendChild(title);
+
+                const gridDiv = document.createElement('div');
+                gridDiv.className = 'grid grid-cols-1 md:grid-cols-12 gap-4';
+
+                group.fields.forEach(field => {
+                    const fieldDiv = document.createElement('div');
+
+                    let colClass = 'col-span-1 md:col-span-4';
+                    if (field.width === 'half') colClass = 'col-span-1 md:col-span-6';
+                    if (field.width === 'full' || field.fullWidth) colClass = 'col-span-1 md:col-span-12';
+
+                    fieldDiv.className = colClass;
+
+                    const label = document.createElement('label');
+                    label.className = 'block text-sm font-medium text-slate-700 mb-1';
+                    if (field.required) {
+                        label.innerHTML = `${field.label} <span class="text-red-500">*</span>`;
+                    } else {
+                        label.innerHTML = field.label;
+                    }
+                    fieldDiv.appendChild(label);
+
+                    let input;
+                    if (field.type === 'select') {
+                        input = document.createElement('select');
+                        input.id = 'input_' + field.index;
+                        input.className = `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-secondary outline-none transition bg-white`;
+                        if (field.required) input.required = true;
+
+                        const defaultOption = document.createElement('option');
+                        defaultOption.value = "";
+                        defaultOption.text = "-- กรุณาเลือก --";
+                        defaultOption.disabled = true;
+                        defaultOption.selected = true;
+                        input.appendChild(defaultOption);
+
+                        let hasOtherOption = false;
+
+                        if (field.options) {
+                            field.options.forEach(optText => {
+                                const option = document.createElement('option');
+                                option.value = optText;
+                                option.text = optText;
+                                input.appendChild(option);
+                                if (optText === 'อื่นๆ') hasOtherOption = true;
+                            });
+                        }
+
+                        fieldDiv.appendChild(input);
+
+                        if (hasOtherOption) {
+                            const otherInput = document.createElement('input');
+                            otherInput.type = 'text';
+                            otherInput.id = 'other_' + field.index;
+                            otherInput.placeholder = 'โปรดระบุ...';
+                            otherInput.className = 'w-full px-3 py-2 mt-2 border rounded-lg focus:ring-2 focus:ring-secondary outline-none transition bg-white hidden';
+
+                            fieldDiv.appendChild(otherInput);
+
+                            input.addEventListener('change', function () {
+                                if (this.value === 'อื่นๆ') {
+                                    otherInput.classList.remove('hidden');
+                                    if (field.required) otherInput.required = true;
+                                } else {
+                                    otherInput.classList.add('hidden');
+                                    otherInput.required = false;
+                                    otherInput.value = '';
+                                }
+                            });
+                        }
+                    } else {
+                        input = document.createElement('input');
+                        input.type = field.type;
+                        input.id = 'input_' + field.index;
+                        input.className = `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-secondary outline-none transition ${field.readonly ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'}`;
+
+                        if (field.placeholder) input.placeholder = field.placeholder;
+                        if (field.readonly) input.readOnly = true;
+                        if (field.required) input.required = true;
+                        if (field.type === 'file' && field.accept) input.accept = field.accept;
+                    }
+
+                    fieldDiv.appendChild(input);
+
+                    if (field.type === 'file') {
+                        const linkDiv = document.createElement('div');
+                        linkDiv.id = 'link_' + field.index;
+                        linkDiv.className = 'text-xs mt-1 hidden';
+                        fieldDiv.appendChild(linkDiv);
+                    }
+
+                    gridDiv.appendChild(fieldDiv);
+                });
+
+                groupDiv.appendChild(gridDiv);
+                container.appendChild(groupDiv);
+            });
+        }
+
+        // --- ส่วนที่แก้ไข: เพิ่มแจ้งเตือนยืนยันการออกจากระบบด้วย SweetAlert ---
+        function confirmLogout() {
+            Swal.fire({
+                title: 'ต้องการออกจากระบบหรือไม่?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#1e3a8a',
+                cancelButtonColor: '#ef4444',
+                confirmButtonText: 'ใช่, ออกจากระบบ',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    location.reload();
+                }
+            })
+        }
+
+        async function login() {
+            const cid = document.getElementById('loginCid').value;
+            const studentId = document.getElementById('loginStudentId').value;
+
+            if (!cid || !studentId) {
+                // แจ้งเตือนเมื่อกรอกข้อมูลไม่ครบ
+                Swal.fire({ icon: 'warning', title: 'แจ้งเตือน', text: 'กรุณากรอก CID และ รหัสนิสิต ให้ครบถ้วน', confirmButtonColor: '#1e3a8a' });
+                return;
+            }
+
+            toggleLoading('login', true);
+
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'login', cid: cid, studentId: studentId })
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    currentRowData = result.data;
+                    currentRowIndex = result.rowIndex;
+
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('formSection').classList.remove('hidden');
+                    document.getElementById('userProfile').classList.remove('hidden');
+
+                    const userName = currentRowData[7] || currentRowData[5];
+                    document.getElementById('displayUserName').innerText = userName;
+
+                    renderForm();
+                    populateData();
+
+                    // แจ้งเตือนเมื่อเข้าสู่ระบบสำเร็จ
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'เข้าสู่ระบบสำเร็จ',
+                        text: `ยินดีต้อนรับ ${userName}`,
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                } else {
+                    // แจ้งเตือนเมื่อข้อมูลไม่ถูกต้อง
+                    Swal.fire({ icon: 'error', title: 'เข้าสู่ระบบไม่สำเร็จ', text: result.message, confirmButtonColor: '#1e3a8a' });
+                }
+            } catch (err) {
+                // แจ้งเตือนเมื่อเชื่อมต่อไม่ได้
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', confirmButtonColor: '#1e3a8a' });
+            } finally {
+                toggleLoading('login', false);
+            }
+        }
+
+        function populateData() {
+            formSchema.forEach(group => {
+                group.fields.forEach(field => {
+                    const rawValue = currentRowData[field.index];
+
+                    if (field.type === 'file') {
+                        if (rawValue && String(rawValue).startsWith('http')) {
+                            const linkDiv = document.getElementById('link_' + field.index);
+                            linkDiv.innerHTML = `ไฟล์ปัจจุบัน: <a href="${rawValue}" target="_blank" class="text-blue-500 underline">คลิกดูไฟล์</a> (หากต้องการเปลี่ยน ให้เลือกไฟล์ใหม่)`;
+                            linkDiv.classList.remove('hidden');
+                        }
+                    } else if (field.type === 'date') {
+                        const input = document.getElementById('input_' + field.index);
+                        if (input && rawValue) {
+                            try {
+                                const d = new Date(rawValue);
+                                if (!isNaN(d.getTime())) {
+                                    const year = d.getFullYear();
+                                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                                    const day = String(d.getDate()).padStart(2, '0');
+                                    input.value = `${year}-${month}-${day}`;
+                                } else {
+                                    input.value = rawValue;
+                                }
+                            } catch (e) {
+                                input.value = rawValue;
+                            }
+                        }
+                    } else if (field.type === 'select') {
+                        const input = document.getElementById('input_' + field.index);
+                        const otherInput = document.getElementById('other_' + field.index);
+
+                        if (input && rawValue) {
+                            const optionExists = Array.from(input.options).some(opt => opt.value === String(rawValue));
+
+                            if (optionExists) {
+                                input.value = rawValue;
+                                if (otherInput) otherInput.classList.add('hidden');
+                            } else {
+                                input.value = "อื่นๆ";
+                                if (otherInput) {
+                                    otherInput.classList.remove('hidden');
+                                    otherInput.value = rawValue;
+                                }
+                            }
+                        }
+                    } else {
+                        const input = document.getElementById('input_' + field.index);
+                        if (input && rawValue !== undefined) {
+                            input.value = rawValue;
+                        }
+                    }
+                });
+            });
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        async function uploadSingleFile(fileInput) {
+            const file = fileInput.files[0];
+            const base64 = await fileToBase64(file);
+
+            const response = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'upload',
+                    data: base64,
+                    filename: currentRowData[1] + '_' + file.name,
+                    mimeType: file.type
+                })
+            });
+            return await response.json();
+        }
+
+        async function saveData(e) {
+            e.preventDefault();
+            toggleLoading('save', true);
+            const statusText = document.getElementById('uploadStatus');
+
+            try {
+                const fileFields = formSchema.flatMap(g => g.fields).filter(f => f.type === 'file');
+                let isUploading = false;
+
+                for (let field of fileFields) {
+                    const fileInput = document.getElementById('input_' + field.index);
+                    if (fileInput.files.length > 0) {
+                        if (!isUploading) { statusText.classList.remove('hidden'); isUploading = true; }
+
+                        const uploadResult = await uploadSingleFile(fileInput);
+                        if (uploadResult.status === 'success') {
+                            currentRowData[field.index] = uploadResult.url;
+                        } else {
+                            throw new Error("อัปโหลดไม่สำเร็จ: " + (uploadResult.message || "ไม่ทราบสาเหตุ"));
+                        }
+                    }
+                }
+
+                formSchema.forEach(group => {
+                    group.fields.forEach(field => {
+                        if (field.type !== 'file') {
+                            const input = document.getElementById('input_' + field.index);
+                            if (input) {
+                                if (field.type === 'select' && input.value === 'อื่นๆ') {
+                                    const otherInput = document.getElementById('other_' + field.index);
+                                    currentRowData[field.index] = otherInput && otherInput.value ? otherInput.value : input.value;
+                                } else {
+                                    currentRowData[field.index] = input.value;
+                                }
+                            }
+                        }
+                    });
+                });
+
+                statusText.innerText = "กำลังบันทึกข้อมูลส่วนตัว...";
+
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'save', rowIndex: currentRowIndex, data: currentRowData })
+                });
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    // --- ส่วนที่แก้ไข: แจ้งเตือนเมื่อบันทึกข้อมูลสำเร็จ ---
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'บันทึกข้อมูลสำเร็จ!',
+                        text: 'ข้อมูลของคุณถูกอัปเดตลงในระบบเรียบร้อยแล้ว',
+                        confirmButtonColor: '#1e3a8a'
+                    });
+                    populateData();
+                } else {
+                    // --- ส่วนที่แก้ไข: แจ้งเตือน Error จาก GAS ---
+                    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: result.message, confirmButtonColor: '#1e3a8a' });
+                }
+            } catch (err) {
+                // --- ส่วนที่แก้ไข: แจ้งเตือน Error ทั่วไป/ระบบไฟล์ ---
+                Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: err.message, confirmButtonColor: '#1e3a8a' });
+            } finally {
+                toggleLoading('save', false);
+                statusText.classList.add('hidden');
+                statusText.innerText = "กำลังอัปโหลดไฟล์... กรุณารอสักครู่";
+            }
+        }
+
+        function toggleLoading(type, isLoading) {
+            const btnText = document.getElementById(type + 'BtnText');
+            const spinner = document.getElementById(type + 'Spinner');
+            const btn = type === 'login' ? document.getElementById('btnLogin') : document.getElementById('btnSave');
+
+            if (isLoading) {
+                btnText.classList.add('hidden');
+                spinner.classList.remove('hidden');
+                btn.disabled = true;
+                btn.classList.add('opacity-75', 'cursor-not-allowed');
+            } else {
+                btnText.classList.remove('hidden');
+                spinner.classList.add('hidden');
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+        }
+    </script>
+</body>
+</html>
