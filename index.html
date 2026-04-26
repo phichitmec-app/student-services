@@ -46,17 +46,21 @@
 
 <body class="text-slate-800 h-full">
 
-    <header class="bg-primary text-white p-4 shadow-md sticky top-0 z-30 shrink-0">
-        <div class="w-full max-w-7xl mx-auto flex justify-between items-center px-4">          
-            <div class="flex items-center gap-4">
-                <img src="https://lh5.googleusercontent.com/d/1kHjp4nBT4V1Lk5bdA-HWzFBYFP6sqYqs" alt="Logo" class="h-16 mr-4">
-                <h1 class="text-xl md:text-2xl font-bold">Phichit MEC Student Services
+    <header class="bg-primary text-white py-2 md:py-4 shadow-md sticky top-0 z-30 shrink-0">
+        <div class="w-full max-w-7xl mx-auto flex justify-between items-center px-3 md:px-4 gap-2">          
+            <div class="flex items-center gap-2 md:gap-4 min-w-0">
+                <img src="https://lh5.googleusercontent.com/d/1kHjp4nBT4V1Lk5bdA-HWzFBYFP6sqYqs" alt="Logo" class="h-9 sm:h-12 md:h-16 shrink-0">
+                <h1 class="text-sm sm:text-lg md:text-2xl font-bold leading-tight">
+                    Phichit MEC <span class="block md:inline text-xs sm:text-sm md:text-2xl font-normal md:font-bold text-slate-200 md:text-white mt-0.5 md:mt-0">Student Services</span>
                 </h1>
             </div>
-            <div id="userProfile" class="hidden text-sm flex items-center">
-                <span>ผู้ใช้งาน: <span id="displayUserName" class="font-bold"></span></span>
+            <div id="userProfile" class="hidden text-xs md:text-sm flex items-center gap-2 shrink-0">
+                <div class="text-right flex flex-col md:block">
+                    <span class="hidden md:inline text-slate-200">ผู้ใช้งาน: </span>
+                    <span id="displayUserName" class="font-bold truncate max-w-[80px] sm:max-w-[150px] md:max-w-none block md:inline"></span>
+                </div>
                 <button onclick="confirmLogout()"
-                    class="ml-4 bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-white transition shadow">ออกจากระบบ</button>
+                    class="bg-red-500 hover:bg-red-600 px-2.5 py-1.5 md:px-3 md:py-1.5 rounded text-white transition shadow whitespace-nowrap">ออกจากระบบ</button>
             </div>
         </div>
     </header>
