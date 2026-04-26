@@ -1,0 +1,35 @@
+<div class="bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold text-primary mb-2">รายการแจ้งค่าไฟ</h2>
+    <p id="electricityStudentName" class="text-slate-600 mb-4 hidden"></p>
+    <div id="electricityContainer" class="overflow-x-auto">
+        <div class="text-center text-slate-500 py-4" id="electricityLoading">
+            กำลังโหลดข้อมูล...
+        </div>
+        <table class="min-w-full bg-white border border-slate-200 hidden" id="electricityTable">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-slate-700 whitespace-nowrap">เดือน</th>
+                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-slate-700 whitespace-nowrap">ราคาค่าไฟ</th>
+                </tr>
+            </thead>
+            <tbody id="electricityBody" class="divide-y divide-slate-200 text-sm">
+                <!-- Rows will be added here -->
+            </tbody>
+        </table>
+        <div id="electricityEmpty" class="text-center text-slate-500 py-4 hidden">
+            ไม่พบรายการแจ้งค่าไฟสำหรับห้องของคุณ
+        </div>
+        
+        <div id="roomSlipSection" class="mt-6 p-6 border border-slate-200 bg-slate-50 rounded-lg hidden">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">หลักฐานการชำระเงินของห้องพัก</h3>
+            <div id="roomSlipContent" class="flex flex-col sm:flex-row items-start sm:items-center gap-4"></div>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white p-6 rounded-lg shadow-md mt-6">
+    <h2 class="text-2xl font-bold text-primary mb-4">วิธีการชำระค่าไฟฟ้า</h2>
+    <div class="mb-6">
+        <img src="https://lh5.googleusercontent.com/d/1V8lVDsT8NecrRYDI_BR0FPmW-dTPCm1r" alt="วิธีการชำระค่าไฟ" class="w-full max-w-2xl mx-auto rounded-lg shadow-sm border border-slate-200">
+    </div>
+</div>
