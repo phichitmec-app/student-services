@@ -540,13 +540,22 @@ async function saveData(e) {
 
         const result = await response.json();
         if (result.status === 'success') {
+            // อัปเดตข้อมูลเซสชันในเครื่อง (Local Storage) เพื่อให้เวลา Refresh จะได้ข้อมูลใหม่ล่าสุด
+            const sessionDataString = localStorage.getItem('userSession');
+            if (sessionDataString) {
+                let sessionData = JSON.parse(sessionDataString);
+                sessionData.data = currentRowData;
+                localStorage.setItem('userSession', JSON.stringify(sessionData));
+            }
+
             Swal.fire({
                 icon: 'success',
                 title: 'บันทึกข้อมูลนิสิตสำเร็จ!',
                 text: 'ข้อมูลของคุณถูกอัปเดตลงในระบบเรียบร้อยแล้ว',
                 confirmButtonColor: '#1e3a8a'
+            }).then(() => {
+                location.reload(); // รีเฟรชหน้าเว็บเมื่อผู้ใช้กด OK
             });
-            populateData(studentMenuData);
         } else {
             Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: result.message, confirmButtonColor: '#1e3a8a' });
         }
