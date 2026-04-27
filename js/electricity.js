@@ -79,6 +79,7 @@ async function loadElectricityData(forceRefresh = false) {
     emptyMsg.classList.add('hidden');
 
     const roomNumber = currentRowData[85] ? String(currentRowData[85]).trim() : ""; // หมายเลขห้อง (Column CH)
+    const studentId = currentRowData[1] ? String(currentRowData[1]).trim() : ""; // รหัสนิสิต (Column B)
 
     if (!roomNumber) {
         emptyMsg.innerText = 'ไม่พบข้อมูลหมายเลขห้องของคุณ';
@@ -93,7 +94,8 @@ async function loadElectricityData(forceRefresh = false) {
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
                 action: 'getElectricityBill',
-                roomNumber: roomNumber
+                roomNumber: roomNumber,
+                studentId: studentId
             })
         });
 
