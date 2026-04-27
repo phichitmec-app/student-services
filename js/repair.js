@@ -135,10 +135,25 @@ async function submitRepairRequest(e) {
         let imageUrl = '';
 
         if (fileInput && fileInput.files.length > 0) {
-            if (statusText) statusText.classList.remove('hidden');
+            if (statusText) {
+                statusText.classList.remove('hidden');
+                statusText.innerHTML = `
+                    <div class="flex flex-col items-center w-full max-w-sm mt-2">
+                        <span class="text-sm text-slate-600 mb-1 font-medium" id="repairPercentText">กำลังเตรียมรูปภาพ... 0%</span>
+                        <div class="w-full bg-slate-200 rounded-full h-2.5 shadow-inner">
+                            <div id="repairProgressBar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                `;
+            }
             // uploadSingleFile is from studentdata.js, assuming it's global.
             // Pass 'repair' to indicate the folder for repair images.
-            const uploadResult = await uploadSingleFile(fileInput, 'repair'); 
+            const uploadResult = await uploadSingleFile(fileInput, 'repair', (percent) => {
+                const pText = document.getElementById('repairPercentText');
+                const pBar = document.getElementById('repairProgressBar');
+                if (pText) pText.innerText = `กำลังอัปโหลด... ${Math.round(percent)}%`;
+                if (pBar) pBar.style.width = `${percent}%`;
+            }); 
             if (uploadResult.status === 'success') {
                 imageUrl = uploadResult.url;
             } else {
@@ -147,11 +162,13 @@ async function submitRepairRequest(e) {
         }
         repairData[7] = imageUrl; // H
 
-        if (statusText) statusText.innerText = "กำลังส่งคำแจ้งซ่อม...";
+        if (statusText) {
+            statusText.innerHTML = "กำลังส่งคำแจ้งซ่อม... <br><span class='text-xs text-blue-500'>(ระบบกำลังจัดคิวหากมีผู้ใช้งานพร้อมกัน)</span>";
+            statusText.classList.remove('hidden');
+        }
 
         const response = await fetch(GAS_URL, {
             method: 'POST',
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({ action: 'submitRepair', data: repairData })
         });
 
@@ -196,7 +213,7 @@ async function submitRepairRequest(e) {
 
         if (statusText) {
             statusText.classList.add('hidden');
-            statusText.innerText = "กำลังอัปโหลดไฟล์... กรุณารอสักครู่";
+            statusText.innerHTML = "";
         }
     }
 }
@@ -254,7 +271,6 @@ async function loadRepairHistory(forceRefresh = false) {
     try {
         const response = await fetch(GAS_URL, {
             method: 'POST',
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
                 action: 'getRepairHistory',
                 studentName: studentName,

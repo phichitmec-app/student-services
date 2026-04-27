@@ -91,7 +91,6 @@ async function loadElectricityData(forceRefresh = false) {
     try {
         const response = await fetch(GAS_URL, {
             method: 'POST',
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
                 action: 'getElectricityBill',
                 roomNumber: roomNumber,
@@ -129,19 +128,39 @@ async function uploadSlip(inputElement) {
     const statusSpan = document.getElementById('room_upload_status');
     const uploadBtn = inputElement.nextElementSibling;
     
-    if (statusSpan) statusSpan.classList.remove('hidden');
+    if (statusSpan) {
+        statusSpan.classList.remove('hidden');
+        statusSpan.innerHTML = `
+            <div class="flex flex-col w-24 sm:w-32 ml-3 justify-center">
+                <span class="text-xs text-slate-500 mb-1 font-medium" id="elecPercentText">อัปโหลด... 0%</span>
+                <div class="w-full bg-slate-200 rounded-full h-1.5 shadow-inner">
+                    <div id="elecProgressBar" class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        `;
+    }
     if (uploadBtn) uploadBtn.classList.add('hidden');
     
     const roomNumber = currentRowData[85] ? String(currentRowData[85]).trim() : "";
     
     try {
-        const uploadResult = await uploadSingleFile(inputElement, 'electricity');
+        const uploadResult = await uploadSingleFile(inputElement, 'electricity', (percent) => {
+            const pText = document.getElementById('elecPercentText');
+            const pBar = document.getElementById('elecProgressBar');
+            if (pText) pText.innerText = `อัปโหลด... ${Math.round(percent)}%`;
+            if (pBar) pBar.style.width = `${percent}%`;
+        });
+
         if (uploadResult.status === 'success') {
             const slipUrl = uploadResult.url;
             
+            if (statusSpan) {
+                const pText = document.getElementById('elecPercentText');
+                if (pText) pText.innerText = `กำลังจัดคิวบันทึก...`;
+            }
+
             const response = await fetch(GAS_URL, {
                 method: 'POST',
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
                 body: JSON.stringify({
                     action: 'updateElectricitySlip',
                     roomNumber: roomNumber,
@@ -168,7 +187,10 @@ async function uploadSlip(inputElement) {
         }
     } catch (err) {
         Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message, confirmButtonColor: '#1e3a8a' });
-        if (statusSpan) statusSpan.classList.add('hidden');
+        if (statusSpan) {
+            statusSpan.classList.add('hidden');
+            statusSpan.innerHTML = 'กำลังอัปโหลด...';
+        }
         if (uploadBtn) uploadBtn.classList.remove('hidden');
         inputElement.value = ''; // Reset input
     }

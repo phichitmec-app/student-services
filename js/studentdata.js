@@ -369,21 +369,93 @@ function fileToBase64(file) {
     });
 }
 
-async function uploadSingleFile(fileInput, folderType = 'student') {
-    const file = fileInput.files[0];
-    const base64 = await fileToBase64(file);
+function compressImage(file, maxWidth = 1280, maxHeight = 1280, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+        // หากไม่ใช่ไฟล์รูปภาพ (เช่น PDF, DOCX) ให้ข้ามการบีบอัดไปเลย
+        if (!file.type.startsWith('image/')) {
+            return fileToBase64(file).then(resolve).catch(reject);
+        }
 
-    const response = await fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-            action: 'upload',
-            data: base64,
-            filename: currentRowData[1] + '_' + file.name,
-            mimeType: file.type,
-            folderType: folderType
-        })
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                // คำนวณสัดส่วนใหม่ถ้าขนาดเกินกว่าที่กำหนดไว้
+                if (width > maxWidth || height > maxHeight) {
+                    if (width > height) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    } else {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // บีบอัดเป็น JPEG (ลดขนาดได้ดีกว่า PNG)
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = error => reject(error);
+        };
+        reader.onerror = error => reject(error);
     });
-    return await response.json();
+}
+
+function uploadSingleFile(fileInput, folderType = 'student', onProgress = null) {
+    return new Promise(async (resolve, reject) => {
+        let progressInterval;
+        try {
+            const file = fileInput.files[0];
+            const base64 = await compressImage(file, 1280, 1280, 0.7); // ปรับลดขนาดไม่เกิน 1280px และคุณภาพ 70%
+            const isImage = file.type.startsWith('image/');
+            const fileName = isImage ? file.name.replace(/\.[^/.]+$/, ".jpg") : file.name;
+
+            const payload = JSON.stringify({
+                action: 'upload',
+                data: base64,
+                filename: currentRowData[1] + '_' + fileName,
+                mimeType: isImage ? 'image/jpeg' : file.type,
+                folderType: folderType
+            });
+
+            // Fake Progress Bar (Google Apps Script ไม่รองรับ Real Progress ผ่าน CORS)
+            let progress = 0;
+            if (onProgress) {
+                progressInterval = setInterval(() => {
+                    let increment = (90 - progress) / 10;
+                    if (increment < 1) increment = 1;
+                    progress += increment;
+                    if (progress >= 90) progress = 90;
+                    onProgress(progress);
+                }, 300);
+            }
+
+            const response = await fetch(GAS_URL, {
+                method: 'POST',
+                body: payload
+            });
+
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                onProgress(100);
+            }
+            
+            resolve(await response.json());
+        } catch (error) {
+            if (progressInterval) clearInterval(progressInterval);
+            reject(error);
+        }
+    });
 }
 
 async function saveData(e) {
@@ -410,11 +482,26 @@ async function saveData(e) {
             const fileInput = document.getElementById('input_' + field.index);
             if (fileInput && fileInput.files.length > 0) {
                 if (!isUploading) {
-                    if (statusText) statusText.classList.remove('hidden');
+                    if (statusText) {
+                        statusText.classList.remove('hidden');
+                        statusText.innerHTML = `
+                            <div class="flex flex-col items-center w-full max-w-sm mt-2">
+                                <span class="text-sm text-slate-600 mb-1 font-medium" id="uploadPercentText">กำลังเตรียมไฟล์... 0%</span>
+                                <div class="w-full bg-slate-200 rounded-full h-2.5 shadow-inner">
+                                    <div id="uploadProgressBar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }
                     isUploading = true;
                 }
 
-                const uploadResult = await uploadSingleFile(fileInput);
+                const uploadResult = await uploadSingleFile(fileInput, 'student', (percent) => {
+                    const pText = document.getElementById('uploadPercentText');
+                    const pBar = document.getElementById('uploadProgressBar');
+                    if (pText) pText.innerText = `กำลังอัปโหลดไฟล์... ${Math.round(percent)}%`;
+                    if (pBar) pBar.style.width = `${percent}%`;
+                });
                 if (uploadResult.status === 'success') {
                     currentRowData[field.index] = uploadResult.url;
                 } else {
@@ -441,7 +528,10 @@ async function saveData(e) {
             });
         });
 
-        if (statusText) statusText.innerText = "กำลังบันทึกข้อมูล...";
+        if (statusText) {
+            statusText.innerHTML = "กำลังบันทึกข้อมูลลงฐานข้อมูล... <br><span class='text-xs text-blue-500'>(ระบบกำลังจัดคิวหากมีผู้ใช้งานพร้อมกัน)</span>";
+            statusText.classList.remove('hidden');
+        }
 
         const response = await fetch(GAS_URL, {
             method: 'POST',
@@ -470,7 +560,7 @@ async function saveData(e) {
 
         if (statusText) {
             statusText.classList.add('hidden');
-            statusText.innerText = "กำลังอัปโหลดไฟล์... กรุณารอสักครู่";
+            statusText.innerHTML = "";
         }
     }
 }
