@@ -1,4 +1,39 @@
 let cachedRepairHistory = null;
+let repairFetchPromise = null;
+
+async function getSharedRepairData(studentName, roomNumber, forceRefresh = false) {
+    if (forceRefresh) cachedRepairHistory = null;
+    if (cachedRepairHistory !== null) return cachedRepairHistory;
+
+    if (!repairFetchPromise) {
+        repairFetchPromise = fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'getRepairHistory', studentName: studentName, roomNumber: roomNumber })
+        })
+        .then(async res => {
+            const textResponse = await res.text();
+            try {
+                return JSON.parse(textResponse);
+            } catch(e) {
+                throw new Error("เซิร์ฟเวอร์ส่งกลับมาเป็น HTML (โปรดตรวจสอบการ Deploy Web App ใหม่)");
+            }
+        })
+        .then(result => {
+            repairFetchPromise = null;
+            if (result.status === 'success') {
+                cachedRepairHistory = result.data || [];
+                return cachedRepairHistory;
+            } else {
+                throw new Error(result.message);
+            }
+        })
+        .catch(err => {
+            repairFetchPromise = null;
+            throw err;
+        });
+    }
+    return repairFetchPromise;
+}
 
 const repairMenuData = [
     {
@@ -269,30 +304,8 @@ async function loadRepairHistory(forceRefresh = false) {
     const roomNumber = currentRowData[85]; // หมายเลขห้อง
 
     try {
-        const response = await fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: 'getRepairHistory',
-                studentName: studentName,
-                roomNumber: roomNumber
-            })
-        });
-
-        const textResponse = await response.text();
-        let result;
-        try {
-            result = JSON.parse(textResponse);
-        } catch (e) {
-            console.error("Server HTML Error:", textResponse);
-            throw new Error("เซิร์ฟเวอร์ส่งกลับมาเป็น HTML (โปรดตรวจสอบการ Deploy Web App ใหม่)");
-        }
-
-        if (result.status === 'success') {
-            cachedRepairHistory = result.data;
-            renderTable(result.data);
-        } else {
-            throw new Error(result.message);
-        }
+        const data = await getSharedRepairData(studentName, roomNumber, forceRefresh);
+        renderTable(data);
     } catch (err) {
         console.error("Error loading repair history:", err);
         emptyMsg.innerText = 'เกิดข้อผิดพลาดในการโหลดประวัติการแจ้งซ่อม';

@@ -1,4 +1,49 @@
 let cachedElectricityData = null;
+let electricityFetchPromise = null;
+
+async function getSharedElectricityData(roomNumber, studentId, forceRefresh = false) {
+    if (forceRefresh) {
+        cachedElectricityData = null;
+    }
+
+    if (cachedElectricityData !== null) {
+        return cachedElectricityData;
+    }
+
+    if (!electricityFetchPromise) {
+        electricityFetchPromise = fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'getElectricityBill',
+                roomNumber: roomNumber,
+                studentId: studentId
+            })
+        })
+        .then(async res => {
+            const textResponse = await res.text();
+            try {
+                return JSON.parse(textResponse);
+            } catch (e) {
+                throw new Error("เซิร์ฟเวอร์ส่งข้อมูลผิดพลาด (อาจเป็น HTML)");
+            }
+        })
+        .then(result => {
+            electricityFetchPromise = null;
+            if (result.status === 'success') {
+                cachedElectricityData = { bills: result.data || [], studentName: result.studentName || "", roomSlip: result.roomSlip || "" };
+                return cachedElectricityData;
+            } else {
+                throw new Error(result.message);
+            }
+        })
+        .catch(err => {
+            electricityFetchPromise = null;
+            throw err;
+        });
+    }
+
+    return electricityFetchPromise;
+}
 
 async function renderElectricityForm() {
     loadElectricityData();
@@ -89,29 +134,8 @@ async function loadElectricityData(forceRefresh = false) {
     }
 
     try {
-        const response = await fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: 'getElectricityBill',
-                roomNumber: roomNumber,
-                studentId: studentId
-            })
-        });
-
-        const textResponse = await response.text();
-        let result;
-        try {
-            result = JSON.parse(textResponse);
-        } catch (e) {
-            throw new Error("เซิร์ฟเวอร์ส่งข้อมูลผิดพลาด (อาจเป็น HTML)");
-        }
-
-        if (result.status === 'success') {
-            cachedElectricityData = { bills: result.data, studentName: result.studentName || "", roomSlip: result.roomSlip || "" };
-            renderTable(result.data, result.studentName || "", result.roomSlip || "");
-        } else {
-            throw new Error(result.message);
-        }
+        const data = await getSharedElectricityData(roomNumber, studentId, forceRefresh);
+        renderTable(data.bills, data.studentName, data.roomSlip);
     } catch (err) {
         console.error("Error loading electricity bills:", err);
         emptyMsg.innerText = 'เกิดข้อผิดพลาดในการโหลดข้อมูลค่าไฟ';

@@ -1,7 +1,17 @@
 const appNavMenus = [
     {
+        name: "หน้าแรก",
+        view: "dashboard",
+        id: "navDashboard",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.592 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>`,
+        onLoad: () => {
+            if (typeof initDashboard === 'function') initDashboard();
+        }
+    },
+    {
         name: "ข้อมูลนิสิต",
         view: "studentdata",
+        id: "navProfile",
         icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>`,
         onLoad: () => {
             renderStudentForm();
@@ -11,6 +21,7 @@ const appNavMenus = [
     {
         name: "Internet WIFI",
         view: "internet",
+        id: "navInternet",
         icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" /></svg>`,
         onLoad: () => {
             renderInternetForm();
@@ -20,6 +31,7 @@ const appNavMenus = [
     {
         name: "ค่าไฟฟ้า",
         view: "electricity",
+        id: "navElec",
         icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>`,
         onLoad: () => {
             if (typeof renderElectricityForm === 'function') renderElectricityForm();
@@ -28,6 +40,7 @@ const appNavMenus = [
     {
         name: "แจ้งซ่อม",
         view: "repair",
+        id: "navRepair",
         icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.83-5.83M15.17 11.42a7.11 7.11 0 01-4.83 1.91 7.127 7.127 0 01-7.18-7.18 7.11 7.11 0 011.91-4.83m10.1 10.1a7.11 7.11 0 001.91-4.83 7.127 7.127 0 00-7.18-7.18 7.11 7.11 0 00-4.83 1.91" /></svg>`,
         onLoad: () => {
             if (typeof renderRepairForm === 'function') renderRepairForm();
@@ -72,7 +85,7 @@ function renderSideNav() {
         const isExternalLink = menu.isExternal && menu.url;
         const navElement = isExternalLink ? document.createElement('a') : document.createElement('button');
         
-        navElement.id = `main-menu-btn-${index}`;
+        navElement.id = menu.id ? menu.id : `main-menu-btn-${index}`;
         navElement.title = menu.name; // เพิ่มคำอธิบายเมื่อเอาเมาส์ชี้ (Tooltip) เผื่อตอนซ่อนเมนู
         navElement.className = `w-full text-left px-4 py-3 md:py-4 font-medium transition-all flex items-center justify-center md:justify-start gap-3 whitespace-nowrap border-b-4 md:border-b-0 md:border-l-4 border-transparent`;
         navElement.innerHTML = `
@@ -143,7 +156,7 @@ async function navigateTo(viewName) {
 
 function updateActiveNav(activeView) {
     appNavMenus.forEach((menu, index) => {
-        const btn = document.getElementById(`main-menu-btn-${index}`);
+        const btn = document.getElementById(menu.id ? menu.id : `main-menu-btn-${index}`);
         const icon = document.getElementById(`main-menu-icon-${index}`);
         if (!btn || !icon) return;
 
